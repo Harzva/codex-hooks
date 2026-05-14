@@ -1,0 +1,6 @@
+.codex-backups/
+*.log
+*.tmp
+*.bak
+*.swp
+
