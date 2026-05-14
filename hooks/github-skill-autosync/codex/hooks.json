@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"__CODEX_HOME__\\hooks\\auto_commit_github_skill.ps1\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"__CODEX_HOME__\\hooks\\push_github_skill.ps1\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
