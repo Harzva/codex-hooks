@@ -12,6 +12,9 @@ $TargetHooksJson = Join-Path $CodexHome "hooks.json"
 $TargetHooksDir = Join-Path $CodexHome "hooks"
 $TargetConfig = Join-Path $CodexHome "config.toml"
 $BackupRoot = Join-Path $RepoRoot ".codex-backups"
+$DeprecatedHookScripts = @(
+  "failure_learning_capture.ps1"
+)
 
 function Write-Step([string]$message) {
   Write-Host "[codex-hooks] $message"
@@ -66,7 +69,23 @@ function Install-HooksJson([string]$source, [string]$target, [string]$codexHome)
 
   if ($targetObject.hooks) {
     foreach ($event in $targetObject.hooks.PSObject.Properties) {
-      $merged.hooks[$event.Name] = @($event.Value)
+      $entries = @()
+      foreach ($entry in @($event.Value)) {
+        $entryJson = $entry | ConvertTo-Json -Depth 20 -Compress
+        $isDeprecated = $false
+        foreach ($scriptName in $DeprecatedHookScripts) {
+          if ($entryJson -match [regex]::Escape($scriptName)) {
+            $isDeprecated = $true
+            break
+          }
+        }
+        if (-not $isDeprecated) {
+          $entries += $entry
+        }
+      }
+      if ($entries.Count -gt 0) {
+        $merged.hooks[$event.Name] = $entries
+      }
     }
   }
 
@@ -158,6 +177,16 @@ foreach ($hookName in Get-HookNames $Hook) {
 
   foreach ($script in Get-ChildItem -Path $SourceScripts -Filter "*.ps1" -File) {
     Copy-WithBackup $script.FullName (Join-Path $TargetHooksDir $script.Name)
+  }
+}
+
+foreach ($scriptName in $DeprecatedHookScripts) {
+  $target = Join-Path $TargetHooksDir $scriptName
+  if (Test-Path -Path $target) {
+    if (-not $DryRun) {
+      Remove-Item -Path $target -Force
+    }
+    Write-Step "Removed deprecated hook script $target"
   }
 }
 
