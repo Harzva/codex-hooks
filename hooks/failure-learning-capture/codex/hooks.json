@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"__CODEX_HOME__\\hooks\\failure_learning_capture.ps1\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+
