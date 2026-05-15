@@ -19,6 +19,11 @@ function Write-Step([string]$message) {
   Write-Host "[codex-hooks] $message"
 }
 
+function Write-Utf8NoBom([string]$path, [string]$value) {
+  $encoding = [System.Text.UTF8Encoding]::new($false)
+  [System.IO.File]::WriteAllText($path, $value, $encoding)
+}
+
 function Copy-WithBackup([string]$source, [string]$target) {
   if (Test-Path -Path $target) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -56,7 +61,7 @@ function Install-HooksJson([string]$source, [string]$target, [string]$codexHome)
   if (-not $DryRun) {
     $parent = Split-Path -Parent $target
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
-    Set-Content -Path $target -Value $rendered -Encoding UTF8
+    Write-Utf8NoBom $target $rendered
   }
   Write-Step "Installed $target"
 }
@@ -65,7 +70,7 @@ function Enable-CodexHooksFeature([string]$configPath) {
   if (-not (Test-Path -Path $configPath)) {
     if (-not $DryRun) {
       New-Item -ItemType Directory -Force -Path (Split-Path -Parent $configPath) | Out-Null
-      Set-Content -Path $configPath -Value "[features]`ncodex_hooks = true`n" -Encoding UTF8
+      Write-Utf8NoBom $configPath "[features]`ncodex_hooks = true`n"
     }
     Write-Step "Created config with codex_hooks enabled"
     return
@@ -88,7 +93,7 @@ function Enable-CodexHooksFeature([string]$configPath) {
     $backupDir = Join-Path $BackupRoot $stamp
     New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
     Copy-Item -Path $configPath -Destination (Join-Path $backupDir "config.toml") -Force
-    Set-Content -Path $configPath -Value $updated -Encoding UTF8
+    Write-Utf8NoBom $configPath $updated
   }
   Write-Step "Enabled codex_hooks in $configPath"
 }
