@@ -14,6 +14,7 @@ This repository is the source package. Use `install.ps1` to sync selected hooks 
 
 | Hook | Purpose |
 | --- | --- |
+| `failure-learning-capture` | Detect repeated failures near Stop and prompt Codex to preserve the lesson as a memory, rule, or skill. |
 | `github-skill-autosync` | Auto-commit GitHub-backed skill repository changes after tool use, then push when the Codex turn stops. |
 
 ## Layout
@@ -23,6 +24,11 @@ codex-hooks/
   README.md
   install.ps1
   hooks/
+    failure-learning-capture/
+      README.md
+      codex/hooks.json
+      scripts/*.ps1
+      docs/
     github-skill-autosync/
       README.md
       codex/hooks.json
@@ -42,6 +48,12 @@ Install a named hook:
 
 ```powershell
 .\install.ps1 -Hook github-skill-autosync
+```
+
+Install all hook modules:
+
+```powershell
+.\install.ps1 -Hook all
 ```
 
 Preview the planned changes:
