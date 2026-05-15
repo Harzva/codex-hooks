@@ -7,9 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$HookRoot = Join-Path $RepoRoot (Join-Path "hooks" $Hook)
-$SourceHooksJson = Join-Path $HookRoot "codex\hooks.json"
-$SourceScripts = Join-Path $HookRoot "scripts"
+$HooksRoot = Join-Path $RepoRoot "hooks"
 $TargetHooksJson = Join-Path $CodexHome "hooks.json"
 $TargetHooksDir = Join-Path $CodexHome "hooks"
 $TargetConfig = Join-Path $CodexHome "config.toml"
@@ -56,12 +54,44 @@ function Install-HooksJson([string]$source, [string]$target, [string]$codexHome)
 
   $escapedCodexHome = $codexHome.Replace("\", "\\")
   $rendered = (Get-Content -Path $source -Raw).Replace("__CODEX_HOME__", $escapedCodexHome)
-  $rendered | ConvertFrom-Json | Out-Null
+  $sourceObject = $rendered | ConvertFrom-Json
+
+  $targetObject = if (Test-Path -Path $target) {
+    Get-Content -Path $target -Raw | ConvertFrom-Json
+  } else {
+    [pscustomobject]@{ hooks = [pscustomobject]@{} }
+  }
+
+  $merged = [ordered]@{ hooks = [ordered]@{} }
+
+  if ($targetObject.hooks) {
+    foreach ($event in $targetObject.hooks.PSObject.Properties) {
+      $merged.hooks[$event.Name] = @($event.Value)
+    }
+  }
+
+  if ($sourceObject.hooks) {
+    foreach ($event in $sourceObject.hooks.PSObject.Properties) {
+      if (-not $merged.hooks.Contains($event.Name)) {
+        $merged.hooks[$event.Name] = @()
+      }
+
+      $existingEntries = @($merged.hooks[$event.Name] | ForEach-Object { $_ | ConvertTo-Json -Depth 20 -Compress })
+      foreach ($entry in @($event.Value)) {
+        $entryJson = $entry | ConvertTo-Json -Depth 20 -Compress
+        if ($existingEntries -notcontains $entryJson) {
+          $merged.hooks[$event.Name] += $entry
+        }
+      }
+    }
+  }
+
+  $output = $merged | ConvertTo-Json -Depth 20
 
   if (-not $DryRun) {
     $parent = Split-Path -Parent $target
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
-    Write-Utf8NoBom $target $rendered
+    Write-Utf8NoBom $target $output
   }
   Write-Step "Installed $target"
 }
@@ -98,11 +128,11 @@ function Enable-CodexHooksFeature([string]$configPath) {
   Write-Step "Enabled codex_hooks in $configPath"
 }
 
-if (-not (Test-Path -Path $SourceHooksJson)) {
-  throw "Missing source hooks.json: $SourceHooksJson"
-}
-if (-not (Test-Path -Path $SourceScripts)) {
-  throw "Missing scripts directory: $SourceScripts"
+function Get-HookNames([string]$requestedHook) {
+  if ($requestedHook -eq "all") {
+    return @(Get-ChildItem -Path $HooksRoot -Directory | ForEach-Object { $_.Name })
+  }
+  return @($requestedHook)
 }
 
 Write-Step "Repository: $RepoRoot"
@@ -111,10 +141,24 @@ Write-Step "Codex home: $CodexHome"
 if ($DryRun) { Write-Step "Dry run mode: no files will be changed" }
 
 Enable-CodexHooksFeature $TargetConfig
-Install-HooksJson $SourceHooksJson $TargetHooksJson $CodexHome
+foreach ($hookName in Get-HookNames $Hook) {
+  $HookRoot = Join-Path $HooksRoot $hookName
+  $SourceHooksJson = Join-Path $HookRoot "codex\hooks.json"
+  $SourceScripts = Join-Path $HookRoot "scripts"
 
-foreach ($script in Get-ChildItem -Path $SourceScripts -Filter "*.ps1" -File) {
-  Copy-WithBackup $script.FullName (Join-Path $TargetHooksDir $script.Name)
+  if (-not (Test-Path -Path $SourceHooksJson)) {
+    throw "Missing source hooks.json: $SourceHooksJson"
+  }
+  if (-not (Test-Path -Path $SourceScripts)) {
+    throw "Missing scripts directory: $SourceScripts"
+  }
+
+  Write-Step "Installing hook module: $hookName"
+  Install-HooksJson $SourceHooksJson $TargetHooksJson $CodexHome
+
+  foreach ($script in Get-ChildItem -Path $SourceScripts -Filter "*.ps1" -File) {
+    Copy-WithBackup $script.FullName (Join-Path $TargetHooksDir $script.Name)
+  }
 }
 
 Write-Step "Install complete"
