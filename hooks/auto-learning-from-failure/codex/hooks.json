@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"__CODEX_HOME__\\hooks\\auto_learning_from_failure.ps1\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
